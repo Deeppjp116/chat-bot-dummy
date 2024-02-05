@@ -1,10 +1,15 @@
 // app.js
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');
 const { SessionsClient } = require('@google-cloud/dialogflow');
 const path = require('path');
-
+const { log } = require('console');
 const app = express();
+
+app.use(express.json());
+app.use(cors());
+
 const PORT = 9999;
 const credentialsPath = path.join(
   __dirname,
@@ -15,11 +20,17 @@ const sessionClient = new SessionsClient({
   keyFilename: credentialsPath,
 });
 
-app.use(express.json());
+app.post('/', (req, res) => {
+  const requestData = req.body && req.body.text;
+  console.log(requestData);
 
+  if (!requestData) {
+    return res
+      .status(400)
+      .send({ error: 'Text is required in the request body.' });
+  }
 
-app.get('/', (req, res) => {
-  async function detectIntent(projectId, sessionId, query) {
+  async function detectIntent(projectId, sessionId, requestData) {
     const sessionPath = sessionClient.projectAgentSessionPath(
       projectId,
       sessionId
@@ -29,7 +40,7 @@ app.get('/', (req, res) => {
       session: sessionPath,
       queryInput: {
         text: {
-          text: query,
+          text: requestData,
           languageCode: 'en-US',
         },
       },
@@ -38,7 +49,7 @@ app.get('/', (req, res) => {
     try {
       const responses = await sessionClient.detectIntent(request);
       const result = responses[0].queryResult;
-      console.log('Response:', result);
+      // console.log('Response:', result);
       res.send(result);
     } catch (error) {
       console.error('Error processing request:', error);
@@ -49,7 +60,7 @@ app.get('/', (req, res) => {
   const sessionId = 'your-unique-session-id';
   const query = 'two lassi';
 
-  detectIntent(projectId, sessionId, query);
+  detectIntent(projectId, sessionId, requestData);
 });
 
 app.listen(PORT, () => {
